@@ -2,9 +2,10 @@ export class Folder {
   constructor(
     public id: number,
     public nome: string,
-    public dataCriacao: Date = new Date(),
+    public data_criacao: Date,
     public isPublic: boolean,
-    public senhaHash?: string
+    public usuario_id: number,
+    public pin?: string
   ) {}
 }
 
