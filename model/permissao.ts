@@ -9,7 +9,7 @@ export class Permissao {
     public id: number,
     public usuario_id: number,
     public pasta_id: number,
-    public tipo_permissao: NivelPermissao
+    public tipo: NivelPermissao
   ) {}
 }
 

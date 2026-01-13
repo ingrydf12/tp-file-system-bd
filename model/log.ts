@@ -2,7 +2,8 @@ export class Log {
   constructor(
     public id: number,
     public action: string,
-    public data: Date = new Date()
+    public data_hora: Date = new Date(),
+    public usuario_id: number
   ) {};
 };
 

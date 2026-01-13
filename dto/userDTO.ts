@@ -1,6 +1,6 @@
 export interface UserBaseDTO {
   nome: string;
-  email: string;
+  login: string;
 }
 
 // Vem com nome e email

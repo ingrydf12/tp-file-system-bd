@@ -30,7 +30,6 @@ async function menu() {
   switch (opcao) {
     case "1": {
       const nome = await perguntar("Nome de usuário: ");
-      const email = await perguntar("Email: ");
       const login = await perguntar("Crie seu login para entrar (ex: iduarte1): ");
       const senha = await perguntar("Crie uma senha: ");
 
@@ -40,7 +39,6 @@ async function menu() {
 
     const payload = {
         nome,
-        email,
         login,
         senha
       };

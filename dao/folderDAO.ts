@@ -4,7 +4,7 @@ import { Folder } from "../model/folder";
 export class FolderDAO {
   async create(folder: Folder): Promise<Folder> {
     const query = `
-      INSERT INTO folder (nome, data_criacao, is_public, usuario_id, pinHash)
+      INSERT INTO pasta (nome, data_criacao, is_public, pin, usuario_id)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING id
     `;
@@ -13,8 +13,8 @@ export class FolderDAO {
       folder.nome,
       folder.data_criacao,
       folder.isPublic,
-      folder.usuario_id,
       folder.pin ?? null,
+      folder.usuario_id
     ];
 
     const result = await pool.query(query, values);
@@ -26,7 +26,7 @@ export class FolderDAO {
   async findById(folderId: number): Promise<Folder | null> {
     const query = `
     SELECT id, nome, data_criacao, is_public, usuario_id
-    FROM folder
+    FROM pasta
     WHERE id = $1
   `;
 
@@ -48,7 +48,7 @@ export class FolderDAO {
   }
 
   async findAll(): Promise<Folder[] | null> {
-    const query = `SELECT id, usuario_id, nome, data_criacao, isPublic FROM folder`;
+    const query = `SELECT id, nome, data_criacao, is_public, usuario_id FROM folder`;
     const result = await pool.query(query);
 
     return result.rows.map(
@@ -71,7 +71,7 @@ export class FolderDAO {
         isPublic = $2,
         pin = $3
       WHERE id = $4
-      RETURNING id, nome, data_criacao, isPublic, usuario_id, pin
+      RETURNING id, nome, data_criacao, is_public, usuario_id, pin
     `;
 
     const values = [
