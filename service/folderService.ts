@@ -1,9 +1,11 @@
 import { FolderDAO } from "../dao/folderDAO";
 import { CreateFolderDTO, UpdateFolderDTO } from "../dto/folderDTO";
+import { FileDAO } from "../dao/fileDAO";
 import { Folder } from "../model/folder";
 import { hashSenha } from "../sal/hash";
 
 const folderDAO = new FolderDAO();
+const fileDAO = new FileDAO();
 
 export async function createFolder(usuarioId: number, dto: CreateFolderDTO) {
   if (!usuarioId) {
@@ -69,4 +71,46 @@ export async function updateFolder(
   }
 
   return folderDAO.updateFolder(folder);
+}
+
+export async function listUserFolders(usuarioId: number) {
+  if (!usuarioId) {
+    throw new Error("Usuário não autenticado");
+  }
+
+  return folderDAO.findByUser(usuarioId);
+}
+
+// Junçao com SELECT dos arquivos
+export async function getFolderDetails(folderId: number) {
+  const pasta = await folderDAO.findById(folderId);
+
+  if (!pasta) {
+    return null;
+  }
+
+  const arquivos = await fileDAO.findByFolderId(folderId);
+
+  return {
+    pasta,
+    arquivos,
+  };
+}
+
+export async function deleteFolder(folderId: number, usuarioId: number) {
+  const folder = await folderDAO.findById(folderId);
+
+  if (!folder) {
+    throw new Error("Pasta não encontrada");
+  }
+
+  if (folder.usuario_id !== usuarioId) {
+    throw new Error("Sem permissão para excluir esta pasta");
+  }
+
+  const deleted = await folderDAO.deleteFolder(folderId);
+
+  if (!deleted) {
+    throw new Error("Erro ao excluir pasta");
+  }
 }

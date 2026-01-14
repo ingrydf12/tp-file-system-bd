@@ -1,7 +1,7 @@
-import * as dotenv from 'dotenv';
+import * as dotenv from "dotenv";
 dotenv.config();
 
-const port = process.env.PORT || 3001;
-const dbHost = process.env.DB_HOST;
+import { menu } from "./cli";
+console.log("📁 Sistema de Arquivos iniciado");
 
-console.log(`Server running on port ${port}, connecting to ${dbHost}`);
+menu();

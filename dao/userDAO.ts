@@ -1,8 +1,9 @@
 import { pool } from "../database/connection";
+import { ResponseUserDTO } from "../dto/userDTO";
 import { User } from "../model/user";
 
 export class UserDAO {
-  // [DOCS] Salvar o usuário no banco
+  // INSERT
   async create(user: User): Promise<User> {
     const query = `
       INSERT INTO usuario (nome, login, senha)
@@ -22,7 +23,7 @@ export class UserDAO {
     );
   }
 
-  // [Docs] Trazer todos os usuários cadastrados
+  // SELECT
   async findAll(): Promise<User[]> {
     const query = `SELECT id, nome, login, senha FROM usuario`;
     const result = await pool.query(query);
@@ -30,5 +31,57 @@ export class UserDAO {
     return result.rows.map(
       (row) => new User(row.id, row.nome, row.login, row.senha)
     );
+  }
+
+  async findById(userId: number): Promise<ResponseUserDTO | null> {
+    const query = `
+    SELECT id, nome, login
+    FROM usuario
+    WHERE id = $1
+  `;
+
+    const result = await pool.query(query, [userId]);
+
+    if (result.rowCount === 0) {
+      return null;
+    }
+
+    const row = result.rows[0];
+
+    return {
+      id: row.id,
+      nome: row.nome,
+      login: row.login,
+    };
+  }
+
+  async findByLogin(login: string): Promise<User | null> {
+    const query = `
+    SELECT id, nome, login, senha
+    FROM usuario
+    WHERE login = $1
+  `;
+
+    const result = await pool.query(query, [login]);
+
+    if ((result.rowCount ?? 0) === 0) {
+      return null;
+    }
+
+    const row = result.rows[0];
+
+    return new User(row.id, row.nome, row.login, row.senha);
+  }
+
+  // DELETE
+  async deleteUser(userId: number): Promise<boolean> {
+    const query = `
+    DELETE FROM usuario
+    WHERE id = $1
+  `;
+
+    const result = await pool.query(query, [userId]);
+
+    return (result.rowCount ?? 0) > 0;
   }
 }
