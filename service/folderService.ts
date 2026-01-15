@@ -81,6 +81,14 @@ export async function listUserFolders(usuarioId: number) {
   return folderDAO.findByUser(usuarioId);
 }
 
+export async function listAllPublic(usuarioId: number) {
+  if (!usuarioId) {
+    throw new Error("Usuário nao autenticado");
+  }
+
+  return folderDAO.findAll();
+}
+
 // Junçao com SELECT dos arquivos
 export async function getFolderDetails(folderId: number) {
   const pasta = await folderDAO.findById(folderId);

@@ -1,7 +1,7 @@
 export enum NivelPermissao {
-  LEITURA = "Leitura",
-  ESCRITA = "Escrita",
-  ADMIN = "Admin",
+  LEITURA = "leitura",
+  ESCRITA = "escrita",
+  ADMIN = "admin",
 }
 
 export class Permissao {
@@ -13,4 +13,4 @@ export class Permissao {
   ) {}
 }
 
-// [Docs] As permissoes são pra acessar arquivos
+// [Docs] As permissoes são pra acessar pastas

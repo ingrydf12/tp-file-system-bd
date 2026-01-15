@@ -1,5 +1,5 @@
 import { pool } from "../database/connection";
-import { ResponseUserDTO } from "../dto/userDTO";
+import { ResponseUserDTO, UpdateUserDTO } from "../dto/userDTO";
 import { User } from "../model/user";
 
 export class UserDAO {
@@ -70,6 +70,41 @@ export class UserDAO {
 
     const row = result.rows[0];
 
+    return new User(row.id, row.nome, row.login, row.senha);
+  }
+
+  async findUser(userId: number): Promise<User | null> {
+    const query = `
+    SELECT id, nome, login, senha
+    FROM usuario
+    WHERE id = $1
+  `;
+    const result = await pool.query(query, [userId]);
+    if (result.rowCount === 0) return null;
+
+    const row = result.rows[0];
+    return new User(row.id, row.nome, row.login, row.senha);
+  }
+
+  // UPDATE
+  async updateUser(user: User): Promise<User> {
+    const query = `
+      UPDATE usuario
+      SET nome = $1,
+          login = $2,
+          senha = $3
+      WHERE id = $4
+      RETURNING id, nome, login, senha
+    `;
+    const values = [user.nome, user.login, user.senha, user.id];
+
+    const result = await pool.query(query, values);
+
+    if (result.rowCount === 0) {
+      throw new Error("Falha ao atualizar usuário");
+    }
+
+    const row = result.rows[0];
     return new User(row.id, row.nome, row.login, row.senha);
   }
 

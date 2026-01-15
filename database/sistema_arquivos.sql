@@ -26,16 +26,18 @@ CREATE TABLE arquivo (
     id        SERIAL PRIMARY KEY,
     nome      VARCHAR(100) NOT NULL,
     tamanho   INT NOT NULL,
+    tipo      VARCHAR(50) NOT NULL,
     pasta_id  INT NOT NULL,
 
     FOREIGN KEY (pasta_id) REFERENCES pasta(id) ON DELETE CASCADE
 );
 
+CREATE TYPE tipo_permissao AS ENUM ('leitura', 'escrita', 'admin');
 CREATE TABLE permissao (
     id         SERIAL PRIMARY KEY,
     usuario_id INT NOT NULL,
     pasta_id   INT NOT NULL,
-    tipo       VARCHAR(10) NOT NULL,
+    tipo       tipo_permissao NOT NULL DEFAULT 'leitura',
 
     UNIQUE (usuario_id, pasta_id),
     FOREIGN KEY (usuario_id) REFERENCES usuario(id) ON DELETE CASCADE,

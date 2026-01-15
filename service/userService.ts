@@ -1,5 +1,5 @@
 import { UserDAO } from "../dao/userDAO";
-import { CreateUserDTO, UpdateUserDTO } from "../dto/userDTO";
+import { CreateUserDTO, UpdateUserDTO, ResponseUserDTO } from "../dto/userDTO";
 import { User } from "../model/user";
 import { hashSenha, compararSenha } from "../sal/hash";
 
@@ -16,12 +16,7 @@ export async function createUser(dto: CreateUserDTO) {
 
   const senhaHash = await hashSenha(dto.senha);
 
-  const user = new User(
-    0,
-    dto.nome,
-    dto.login,
-    senhaHash
-  );
+  const user = new User(0, dto.nome, dto.login, senhaHash);
 
   const savedUser = await userDAO.create(user);
 
@@ -32,7 +27,10 @@ export async function createUser(dto: CreateUserDTO) {
   };
 }
 
-export async function simularLogin(login: string, senha: string): Promise<number> {
+export async function simularLogin(
+  login: string,
+  senha: string
+): Promise<number> {
   const user = await userDAO.findByLogin(login);
 
   if (!user) {
@@ -48,10 +46,26 @@ export async function simularLogin(login: string, senha: string): Promise<number
   return user.id;
 }
 
-export async function updateUser(dto: UpdateUserDTO) {
-  // TODO: Tu procura pelo ID e atualiza conforme os dados passados
+export async function updateUserById(
+  usuarioId: number,
+  dto: UpdateUserDTO
+): Promise<User> {
+  const user = await userDAO.findUser(usuarioId);
+  if (!user) {
+    throw new Error("Usuário não encontrado");
+  }
+
+  if (dto.nome !== undefined) user.nome = dto.nome;
+  if (dto.login !== undefined) user.login = dto.login;
+
+  if (dto.senha !== undefined) {
+    if (dto.senha.length < 6) {
+      throw new Error("Senha deve ter pelo menos 6 caracteres");
+    }
+    user.senha = await hashSenha(dto.senha);
+  }
+
+  return userDAO.updateUser(user);
 }
 
-export async function deleteUser(id: number) {
-  // TODO: Só precisa passar o ID e confirmar a operaçao
-}
+//export async function deleteUser(id: number) {}

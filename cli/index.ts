@@ -2,6 +2,9 @@ import * as readline from "readline";
 import { createFolder } from "../service/folderService";
 import { createUser, simularLogin } from "../service/userService";
 import * as folderService from "../service/folderService";
+import * as fileService from "../service/fileService";
+import * as logService from "../service/logService";
+import * as userService from "../service/userService";
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -22,11 +25,9 @@ export async function menu() {
     console.log("2 - Fazer login");
     console.log("3 - Criar pasta");
     console.log("4 - Visualizar ...");
-    console.log("5 - Editar ...");
-    console.log("6 - Editar permissões");
-    console.log("7 - Deletar pasta ou arquivo");
-    console.log("8 - Deletar ...");
-    console.log("9- Sair");
+    console.log("5 - Atualizar ...");
+    console.log("6 - Deletar ...");
+    console.log("7 - Sair");
 
     const opcao = await perguntar("Escolha uma opção: ");
 
@@ -94,6 +95,8 @@ export async function menu() {
 
         await createFolder(sessao, payload);
 
+        await logService.createLogHistory(sessao, `Pasta ${nome} foi criada`);
+
         console.log(`Pasta "${nome}" criada com sucesso`);
         break;
       }
@@ -104,22 +107,16 @@ export async function menu() {
       }
 
       case "5": {
-        console.log("rs, editar pasta");
+        await menuAtualizar(sessao);
+        break;
       }
 
       case "6": {
-        console.log("rs, editar permissões");
+        await menuDeletar(sessao);
+        break;
       }
 
-      case "7": {
-        console.log("rs, deletar pasta ou arquivo");
-      }
-
-      case "8": {
-        console.log("rs, deletar usuario");
-      }
-
-      case "9":
+      case "7":
         rl.close();
         return;
 
@@ -131,15 +128,16 @@ export async function menu() {
 
 async function menuVisualizar(sessao: number | null) {
   if (!sessao) {
-    console.log("❌ Você precisa estar logado");
+    console.log("Você precisa estar logado");
   }
 
   while (true) {
-    console.log("\n📂 Visualizar");
+    console.log("\n🥽 Visualizar");
     console.log("1 - Minhas pastas");
     console.log("2 - Pastas públicas");
     console.log("3 - Detalhes de uma pasta");
-    console.log("4 - Voltar");
+    console.log("4 - Log do sistema");
+    console.log("5 - Voltar");
 
     const opcao = await perguntar("Escolha: ");
 
@@ -157,16 +155,37 @@ async function menuVisualizar(sessao: number | null) {
           break;
         }
 
+        console.log("\n📂 Minhas pastas:");
+        pastas.forEach((p) => {
+          console.log(`• [${p.id}] ${p.nome}`);
+        });
+
         break;
       }
 
-      case "2":
-        // select pastas publicas
+      case "2": {
+        if (!sessao) {
+          console.log("[Sistema_Arquivo UFC] Você precisa estar logado");
+          break;
+        }
+
+        const pastasPublic = await folderService.listAllPublic(sessao);
+
+        if (!pastasPublic || pastasPublic.length === 0) {
+          console.log("Nenhuma pasta pública foi encontrada");
+          break;
+        }
+
+        console.log("\n📂 Pastas públicas do sistema:");
+        pastasPublic.forEach((p) => {
+          console.log(`• [${p.id}] ${p.nome}`);
+        });
         break;
+      }
 
       case "3": {
         if (!sessao) {
-          console.log("❌ Você precisa estar logado");
+          console.log("[Sistema_Arquivo UFC] Você precisa estar logado");
           break;
         }
 
@@ -204,8 +223,33 @@ async function menuVisualizar(sessao: number | null) {
         break;
       }
 
-      case "4":
-        return; // ← volta para o menu principal
+      case "4": {
+        if (!sessao) {
+          console.log("[Sistema_Arquivo UFC] Você precisa estar logado");
+          break;
+        }
+
+        const logs = await logService.getLogHistory();
+
+        if (!logs || logs.length === 0) {
+          console.log("📭 Nenhum log encontrado");
+          break;
+        }
+
+        console.log("\n📜 Log do sistema:\n");
+
+        logs.forEach((log) => {
+          console.log(
+            `• [${new Date(log.data_hora).toLocaleString()}] ` +
+              `${log.usuario_nome} → ${log.action}`
+          );
+        });
+
+        break;
+      }
+
+      case "5":
+        return;
 
       default:
         console.log("Opção inválida");
@@ -213,6 +257,177 @@ async function menuVisualizar(sessao: number | null) {
   }
 }
 
-async function menuEdicoes(sessao: number | null) {
+async function menuAtualizar(sessao: number | null) {
+  if (!sessao) {
+    console.log("[Sistema_Arquivo UFC] Você precisa estar logado");
+  }
 
+  while (true) {
+    console.log("\n🚧 Atualizar no sistema");
+    console.log("1 - Um arquivo pelo ID");
+    console.log("2 - Meu usuário");
+    console.log("3 - Permissoes de um usuário sobre uma pasta");
+    console.log("4 - Voltar");
+
+    const opcao = await perguntar("Escolha: ");
+
+    switch (opcao) {
+      case "1": {
+        if (!sessao) {
+          console.log("[Sistema_Arquivo UFC] Você precisa estar logado");
+          break;
+        }
+
+        const idStr = await perguntar("ID do arquivo: ");
+        const fileId = Number(idStr);
+
+        if (isNaN(fileId)) {
+          console.log("ID inválido");
+          break;
+        }
+
+        const file = await fileService.findById(fileId);
+        if (!file) {
+          console.log("Arquivo não encontrado");
+          break;
+        }
+
+        const nome = await perguntar("Novo nome (enter para manter): ");
+        const tamanhoStr = await Number(
+          perguntar("Novo tamanho (enter para manter): ")
+        );
+        const tipo = await perguntar("Novo tipo (enter para manter): ");
+
+        try {
+          const updated = await fileService.updateFile(file, {
+            nome: nome,
+            tamanho: tamanhoStr,
+            tipo: tipo,
+          });
+
+          console.log("Arquivo atualizado com sucesso:");
+          console.log(updated);
+
+          await logService.createLogHistory(
+            sessao,
+            `Arquivo ${file.id} atualizado`
+          );
+        } catch (error: any) {
+          console.log("Erro ao atualizar arquivo:", error.message);
+        }
+
+        break;
+      }
+      case "2": {
+        const idStr = await perguntar("ID do usuário: ");
+        const usuarioId = Number(idStr);
+
+        if (isNaN(usuarioId)) {
+          console.log("ID inválido");
+          return;
+        }
+
+        const nome = await perguntar("Novo nome (enter para manter): ");
+        const login = await perguntar("Novo login (enter para manter): ");
+        const senha = await perguntar("Nova senha (enter para manter): ");
+
+        const dto: any = {};
+        if (nome.trim() !== "") dto.nome = nome;
+        if (login.trim() !== "") dto.login = login;
+        if (senha.trim() !== "") dto.senha = senha;
+
+        try {
+          const updatedUser = await userService.updateUserById(usuarioId, dto);
+
+          console.log("✅ Usuário atualizado com sucesso:");
+          console.log(`ID: ${updatedUser.id}`);
+          console.log(`Nome: ${updatedUser.nome}`);
+          console.log(`Login: ${updatedUser.login}`);
+
+          await logService.createLogHistory(usuarioId, `Usuário atualizado`);
+        } catch (error: any) {
+          console.log("❌ Erro ao atualizar usuário:", error.message);
+        }
+      }
+      case "3": {
+        // ATUALIZAR PERMISSOES DE PASTA PARA UM USUARIO
+      }
+      case "4":
+        return;
+
+      default:
+        console.log("Opçao inválida. Tente novamente.");
+    }
+  }
+}
+
+async function menuDeletar(sessao: number | null) {
+  if (!sessao) {
+    console.log("[Sistema_Arquivo UFC] Você precisa estar logado");
+  }
+
+  while (true) {
+    console.log("\n🕳 Excluir do sistema");
+    console.log("1 - Pasta pelo ID");
+    console.log("2 - Arquivo enviado por voce");
+    console.log("3 - Voltar");
+
+    const opcao = await perguntar("Escolha: ");
+
+    switch (opcao) {
+      case "1": {
+        if (!sessao) {
+          console.log("[Sistema_Arquivo UFC] Você precisa estar logado");
+          break;
+        }
+        const idStr = await perguntar("Id da pasta a excluir: ");
+        const folderId = Number(idStr);
+        if (isNaN(folderId)) {
+          console.log("❌ ID inválido");
+          break;
+        }
+        try {
+          await folderService.deleteFolder(folderId, sessao);
+          console.log(`✅ Pasta "${folderId}" deletada com sucesso`);
+
+          await logService.createLogHistory(
+            sessao,
+            `Pasta "${folderId}" deletada`
+          );
+        } catch (error: any) {
+          console.log("❌ Erro ao deletar pasta:", error.message);
+        }
+        break;
+      }
+
+      case "2": {
+        const idStr = await perguntar("ID do arquivo a excluir: ");
+        const fileId = Number(idStr);
+
+        if (isNaN(fileId)) {
+          console.log("❌ ID inválido");
+          break;
+        }
+
+        try {
+          await fileService.deleteFile(fileId);
+          console.log(`✅ Arquivo ${fileId} deletado com sucesso`);
+
+          await logService.createLogHistory(
+            sessao,
+            `Arquivo ${fileId} deletado`
+          );
+        } catch (error: any) {
+          console.log("❌ Erro ao deletar arquivo:", error.message);
+        }
+        break;
+      }
+
+      case "3":
+        return;
+
+      default:
+        console.log("❌ Opção inválida. Tente novamente.");
+    }
+  }
 }
