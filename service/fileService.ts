@@ -1,12 +1,20 @@
 import { FileDAO } from "../dao/fileDAO";
 import { CreateFileDTO, UpdateFileDTO } from "../dto/fileDTO";
 import { File } from "../model/file";
+import { FolderDAO } from "../dao/folderDAO";
 
 const fileDAO = new FileDAO();
+const folderDAO = new FolderDAO();
 
 export async function createFile(usuarioId: number, dto: CreateFileDTO) {
   if (!usuarioId) {
     throw new Error("Você precisa estar logado pra realizar essa operação.");
+  }
+
+  const folder = await folderDAO.findById(dto.pasta_id);
+
+  if (!folder) {
+    throw new Error("A pasta informada não existe");
   }
 
   if (!dto.nome || dto.nome.trim() === "") {

@@ -23,7 +23,7 @@ export async function menu() {
     console.log("\n📁 Sistema de Arquivos");
     console.log("1 - Criar usuário");
     console.log("2 - Fazer login");
-    console.log("3 - Criar pasta");
+    console.log("3 - Criar ...");
     console.log("4 - Visualizar ...");
     console.log("5 - Atualizar ...");
     console.log("6 - Deletar ...");
@@ -72,32 +72,7 @@ export async function menu() {
       }
 
       case "3": {
-        if (!sessao) {
-          console.log("Você precisa estar logado para criar pasta");
-          break;
-        }
-
-        const nome = await perguntar("Nome da pasta: ");
-        const isPublicResposta = await perguntar("Pública? (s/n): ");
-
-        const isPublic = isPublicResposta.toLowerCase() === "s";
-        let pin: string | undefined;
-
-        if (!isPublic) {
-          pin = await perguntar("Insira um PIN numérico: ");
-        }
-
-        const payload = {
-          nome,
-          isPublic,
-          ...(pin !== undefined ? { pin } : {}),
-        };
-
-        await createFolder(sessao, payload);
-
-        await logService.createLogHistory(sessao, `Pasta ${nome} foi criada`);
-
-        console.log(`Pasta "${nome}" criada com sucesso`);
+        await menuCriar(sessao);
         break;
       }
 
@@ -126,6 +101,109 @@ export async function menu() {
   }
 }
 
+async function menuCriar(sessao: number | null) {
+  if (!sessao) {
+    console.log("Você precisa estar logado");
+  }
+
+  while (true) {
+    console.log("\n🚗 Criar");
+    console.log("1 - Uma nova pasta");
+    console.log("2 - Um novo arquivo");
+    console.log("3 - Voltar");
+
+    const opcao = await perguntar("Escolha: ");
+
+    switch (opcao) {
+      case "1": {
+        if (!sessao) {
+          console.log("[Sistema_Arquivo UFC] Você precisa estar logado");
+          break;
+        }
+
+        const nome = await perguntar("Nome da pasta: ");
+        const isPublicResposta = await perguntar("Pública? (s/n): ");
+
+        const isPublic = isPublicResposta.toLowerCase() === "s";
+        let pin: string | undefined;
+
+        if (!isPublic) {
+          pin = await perguntar("Insira um PIN numérico: ");
+        }
+
+        const payload = {
+          nome,
+          isPublic,
+          ...(pin !== undefined ? { pin } : {}),
+        };
+
+        await createFolder(sessao, payload);
+
+        await logService.createLogHistory(sessao, `Pasta ${nome} foi criada`);
+
+        console.log(`Pasta "${nome}" criada com sucesso`);
+        break;
+      }
+      case "2": {
+        if (!sessao) {
+          console.log("[Sistema_Arquivo UFC] Você precisa estar logado");
+          break;
+        }
+
+        const pastas = await folderService.listUserFolders(sessao);
+
+        if (!pastas || pastas.length === 0) {
+          console.log("📭 Você não possui pastas. Crie uma antes.");
+          break;
+        }
+
+        console.log("\n📂 Suas pastas:");
+        pastas.forEach((p) => {
+          console.log(`• [${p.id}] ${p.nome}`);
+        });
+
+        const pastaIdStr = await perguntar("\nDigite o ID da pasta: ");
+        const pasta_id = Number(pastaIdStr);
+
+        if (isNaN(pasta_id)) {
+          console.log("ID inválido");
+          break;
+        }
+
+        const nome = await perguntar("Nome do arquivo: ");
+        const tamanhoStr = await perguntar("Tamanho do arquivo (bytes): ");
+        const tipo = await perguntar("Tipo do arquivo (.pdf, .docx): ");
+
+        const tamanho = Number(tamanhoStr);
+
+        if (isNaN(tamanho)) {
+          console.log("Tamanho inválido");
+          break;
+        }
+
+        try {
+          const file = await fileService.createFile(sessao, {
+            nome,
+            tamanho,
+            tipo,
+            pasta_id,
+          });
+
+          console.log("📄 Arquivo criado com sucesso:");
+        } catch (error: any) {
+          console.log("Erro ao criar arquivo:", error.message);
+        }
+
+        break;
+      }
+      case "3":
+        return;
+      default:
+        console.log("Opcao inválida. Tente novamente.");
+    }
+  }
+}
+
 async function menuVisualizar(sessao: number | null) {
   if (!sessao) {
     console.log("Você precisa estar logado");
@@ -144,7 +222,7 @@ async function menuVisualizar(sessao: number | null) {
     switch (opcao) {
       case "1": {
         if (!sessao) {
-          console.log("Você precisa estar logado");
+          console.log("[Sistema_Arquivo UFC] Você precisa estar logado");
           break;
         }
 
@@ -319,12 +397,9 @@ async function menuAtualizar(sessao: number | null) {
         break;
       }
       case "2": {
-        const idStr = await perguntar("ID do usuário: ");
-        const usuarioId = Number(idStr);
-
-        if (isNaN(usuarioId)) {
-          console.log("ID inválido");
-          return;
+        if (!sessao) {
+          console.log("❌ Você precisa estar logado");
+          break;
         }
 
         const nome = await perguntar("Novo nome (enter para manter): ");
@@ -337,14 +412,14 @@ async function menuAtualizar(sessao: number | null) {
         if (senha.trim() !== "") dto.senha = senha;
 
         try {
-          const updatedUser = await userService.updateUserById(usuarioId, dto);
+          const updatedUser = await userService.updateUserById(sessao, dto);
 
           console.log("✅ Usuário atualizado com sucesso:");
           console.log(`ID: ${updatedUser.id}`);
           console.log(`Nome: ${updatedUser.nome}`);
           console.log(`Login: ${updatedUser.login}`);
 
-          await logService.createLogHistory(usuarioId, `Usuário atualizado`);
+          await logService.createLogHistory(sessao, `Usuário atualizado`);
         } catch (error: any) {
           console.log("❌ Erro ao atualizar usuário:", error.message);
         }
