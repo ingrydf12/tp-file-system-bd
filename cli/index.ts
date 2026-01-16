@@ -5,6 +5,8 @@ import * as folderService from "../service/folderService";
 import * as fileService from "../service/fileService";
 import * as logService from "../service/logService";
 import * as userService from "../service/userService";
+import * as permissaoService from "../service/permissaoService";
+import { NivelPermissao } from "../model/permissao";
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -15,6 +17,21 @@ function perguntar(pergunta: string): Promise<string> {
   return new Promise((resolve) => {
     rl.question(pergunta, resolve);
   });
+}
+
+// Pra amostragem de permissáo
+async function listarUsuarios(sessao: number) {
+  try {
+    const usuarios = await userService.getAllUsers(sessao);
+    console.log("\n👥 Usuários do sistema:");
+    usuarios.forEach((u: any) => {
+      console.log(`• [${u.id}] ${u.nome} (${u.login})`);
+    });
+    return usuarios;
+  } catch (error) {
+    console.log("Erro ao listar usuários:", error);
+    return [];
+  }
 }
 
 export async function menu() {
@@ -424,8 +441,281 @@ async function menuAtualizar(sessao: number | null) {
           console.log("❌ Erro ao atualizar usuário:", error.message);
         }
       }
+      // No caso "3" do menuAtualizar:
       case "3": {
-        // ATUALIZAR PERMISSOES DE PASTA PARA UM USUARIO
+        if (!sessao) {
+          console.log("[Sistema_Arquivo UFC] Você precisa estar logado");
+          break;
+        }
+
+        console.log("\n🔑 Gerenciar Permissões");
+        console.log("1 - Conceder permissão a um usuário");
+        console.log("2 - Remover permissão de um usuário");
+        console.log("3 - Listar permissões de uma pasta");
+        console.log("4 - Ver minhas pastas compartilhadas");
+        console.log("5 - Voltar");
+
+        const subOpcao = await perguntar("Escolha: ");
+
+        switch (subOpcao) {
+          case "1": {
+            const pastas = await folderService.listUserFolders(sessao);
+
+            if (!pastas || pastas.length === 0) {
+              console.log("📭 Você não possui pastas para compartilhar");
+              break;
+            }
+
+            console.log("\n📂 Suas pastas:");
+            pastas.forEach((p: any) => {
+              console.log(`• [${p.id}] ${p.nome}`);
+            });
+
+            const pastaIdStr = await perguntar(
+              "\nID da pasta para compartilhar: "
+            );
+            const pastaId = Number(pastaIdStr);
+
+            if (isNaN(pastaId)) {
+              console.log("❌ ID inválido");
+              break;
+            }
+
+            const usuarios = await listarUsuarios(sessao);
+            if (usuarios.length === 0) {
+              console.log("Nenhum usuário encontrado no sistema");
+              break;
+            }
+
+            const usuarioIdStr = await perguntar(
+              "\nID do usuário para conceder permissão: "
+            );
+            const usuarioId = Number(usuarioIdStr);
+
+            if (isNaN(usuarioId)) {
+              console.log("ID do usuário inválido");
+              break;
+            }
+
+            if (usuarioId === sessao) {
+              console.log("❌ Você não pode conceder permissão a si mesmo");
+              break;
+            }
+
+            // Escolher nível de permissão
+            console.log("\n📊 Níveis de permissão:");
+            console.log("1 - Leitura (apenas visualizar)");
+            console.log("2 - Escrita (visualizar e modificar)");
+            console.log("3 - Admin (todas as permissões)");
+
+            const nivelStr = await perguntar("Escolha o nível (1-3): ");
+            let nivel: NivelPermissao | null = null;
+
+            switch (nivelStr) {
+              case "1":
+                nivel = NivelPermissao.LEITURA;
+                break;
+              case "2":
+                nivel = NivelPermissao.ESCRITA;
+                break;
+              case "3":
+                nivel = NivelPermissao.ADMIN;
+                break;
+              default:
+                console.log("❌ Nível inválido");
+                break;
+            }
+
+            try {
+              await permissaoService.concederPermissao(
+                usuarioId,
+                pastaId,
+                nivel!
+              );
+
+              console.log(`✅ Permissão concedida com sucesso!`);
+              console.log(`Usuário: ${usuarioId}`);
+              console.log(`Pasta: ${pastaId}`);
+              console.log(`Nível: ${nivel}`);
+
+              await logService.createLogHistory(
+                sessao,
+                `Permissão concedida: usuário ${usuarioId} na pasta ${pastaId}`
+              );
+            } catch (error: any) {
+              console.log(`❌ Erro: ${error.message}`);
+            }
+            break;
+          }
+
+          case "2": {
+            const pastas = await folderService.listUserFolders(sessao);
+
+            if (!pastas || pastas.length === 0) {
+              console.log("📭 Você não possui pastas");
+              break;
+            }
+
+            console.log("\n📂 Suas pastas:");
+            pastas.forEach((p: any) => {
+              console.log(`• [${p.id}] ${p.nome}`);
+            });
+
+            const pastaIdStr = await perguntar("\nID da pasta: ");
+            const pastaId = Number(pastaIdStr);
+
+            if (isNaN(pastaId)) {
+              console.log("❌ ID inválido");
+              break;
+            }
+
+            // Listar permissões existentes na pasta
+            try {
+              const permissoes = await permissaoService.listarPermissoesPasta(
+                pastaId
+              );
+
+              if (permissoes.length === 0) {
+                console.log("📭 Nenhuma permissão encontrada para esta pasta");
+                break;
+              }
+
+              console.log("\n👥 Usuários com acesso:");
+              permissoes.forEach((p: any) => {
+                console.log(
+                  `• [${p.usuario_id}] ${p.usuario_nome} - ${p.tipo}`
+                );
+              });
+
+              const usuarioIdStr = await perguntar(
+                "\nID do usuário para remover permissão: "
+              );
+              const usuarioId = Number(usuarioIdStr);
+
+              if (isNaN(usuarioId)) {
+                console.log("❌ ID inválido");
+                break;
+              }
+
+              const confirmacao = await perguntar(
+                `Tem certeza que deseja remover a permissão do usuário ${usuarioId}? (s/n): `
+              );
+
+              if (confirmacao.toLowerCase() === "s") {
+                const removido = await permissaoService.removerPermissao(
+                  usuarioId,
+                  pastaId
+                );
+
+                if (removido) {
+                  console.log(
+                    `Permissão de usuário ${usuarioId} removida com sucesso!`
+                  );
+
+                  await logService.createLogHistory(
+                    sessao,
+                    `Permissão removida: usuário ${usuarioId} da pasta ${pastaId}`
+                  );
+                } else {
+                  console.log("Permissão não encontrada");
+                }
+              }
+            } catch (error: any) {
+              console.log(`❌ Erro: ${error.message}`);
+            }
+            break;
+          }
+
+          case "3": {
+            const pastas = await folderService.listUserFolders(sessao);
+
+            if (!pastas || pastas.length === 0) {
+              console.log("📭 Você não possui pastas");
+              break;
+            }
+
+            console.log("\n📂 Suas pastas:");
+            pastas.forEach((p: any) => {
+              console.log(`• [${p.id}] ${p.nome}`);
+            });
+
+            const pastaIdStr = await perguntar(
+              "\nID da pasta para visualizar permissões: "
+            );
+            const pastaId = Number(pastaIdStr);
+
+            if (isNaN(pastaId)) {
+              console.log("❌ ID inválido");
+              break;
+            }
+
+            try {
+              const permissoes = await permissaoService.listarPermissoesPasta(
+                pastaId
+              );
+
+              if (permissoes.length === 0) {
+                console.log("📭 Nenhuma permissão encontrada para esta pasta");
+              } else {
+                console.log(`\n🔑 Permissões da pasta ${pastaId}:`);
+                console.log("=".repeat(50));
+
+                permissoes.forEach((p: any) => {
+                  console.log(
+                    `👤 Usuário: ${p.usuario_nome} (${p.usuario_login})`
+                  );
+                  console.log(`📊 Nível: ${p.tipo}`);
+                  console.log(
+                    `📅 Concedido em: ${new Date(p.criado_em).toLocaleString()}`
+                  );
+                  console.log("-".repeat(30));
+                });
+              }
+            } catch (error: any) {
+              console.log(`❌ Erro: ${error.message}`);
+            }
+            break;
+          }
+
+          case "4": {
+            try {
+              const pastasComPermissao =
+                await permissaoService.listarPermissoesPasta(sessao);
+
+              if (pastasComPermissao.length === 0) {
+                console.log(
+                  "📭 Você não tem acesso a nenhuma pasta compartilhada"
+                );
+              } else {
+                console.log("\n📂 Pastas compartilhadas com você:");
+                console.log("=".repeat(50));
+
+                pastasComPermissao.forEach((p: any) => {
+                  console.log(`📁 Pasta: ${p.pasta_nome} (ID: ${p.pasta_id})`);
+                  console.log(`Dono: ${p.dono_nome}`);
+                  console.log(`Pública: ${p.is_public ? "Sim" : "Não"}`);
+                  console.log(`Tipo de permissao: ${p.permissao_tipo}`);
+                  console.log(
+                    `📅 Acesso concedido em: ${new Date(
+                      p.criado_em
+                    ).toLocaleString()}`
+                  );
+                  console.log("-".repeat(30));
+                });
+              }
+            } catch (error: any) {
+              console.log(`Erro: ${error.message}`);
+            }
+            break;
+          }
+
+          case "5":
+            return;
+
+          default:
+            console.log("Opção inválida");
+        }
+        break;
       }
       case "4":
         return;

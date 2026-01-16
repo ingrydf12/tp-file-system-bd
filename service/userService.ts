@@ -68,4 +68,8 @@ export async function updateUserById(
   return userDAO.updateUser(user);
 }
 
+export async function getAllUsers(usuarioId: number){
+  return await userDAO.findAllExcept(usuarioId);
+}
+
 //export async function deleteUser(id: number) {}

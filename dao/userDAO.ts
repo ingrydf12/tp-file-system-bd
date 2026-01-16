@@ -33,6 +33,27 @@ export class UserDAO {
     );
   }
 
+  async findAllExcept(excludeUserId: number): Promise<User[]> {
+    const query = `
+      SELECT id, nome, login
+      FROM usuario
+      WHERE id != $1
+      ORDER BY nome
+    `;
+
+    const result = await pool.query(query, [excludeUserId]);
+
+    return result.rows.map(
+      (row) =>
+        new User(
+          row.id,
+          row.nome,
+          row.login,
+          "",
+        )
+    );
+  }
+
   async findById(userId: number): Promise<ResponseUserDTO | null> {
     const query = `
     SELECT id, nome, login
